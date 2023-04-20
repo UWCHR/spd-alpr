@@ -1,0 +1,32 @@
+---
+title: SPD ALPR Analysis
+author:
+- "[Destiny Moreno](https://github.com/dmorenouw)"
+- "[Phil Neff](https://github.com/philneff)"
+date: 20 April, 2023
+output:
+    html_document:
+        html_preview: true
+        toc: true
+        toc_depth: 3
+        toc_float: true
+        code_folding: hide
+---
+
+```{r import, echo=FALSE, message=FALSE, include=TRUE}
+
+library(pacman)
+p_load(tidyverse)
+
+df <- read_delim(here::here('write', 'input', 'spd-alpr-pub.csv.gz'), delim='|')
+
+plate_freq <- df %>% 
+  group_by(plate_hash) %>% 
+  summarize(n = n()) %>% 
+  mutate(freq = n/sum(n))
+
+avg_reads <- mean(plate_freq$n)
+
+```
+
+The average number of ALPR reads per unique plate is: `r avg_reads`
