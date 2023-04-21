@@ -1450,23 +1450,17 @@ overflow-y: auto;
 border: 1px solid #ddd;
 border-radius: 4px;
 }
-.tabset-dropdown > .nav-tabs > li.active:before {
-content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+content: "\e259";
 font-family: 'Glyphicons Halflings';
 display: inline-block;
 padding: 10px;
 border-right: 1px solid #ddd;
 }
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-content: "";
-border: none;
-}
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-content: "";
+content: "\e258";
 font-family: 'Glyphicons Halflings';
-display: inline-block;
-padding: 10px;
-border-right: 1px solid #ddd;
+border: none;
 }
 .tabset-dropdown > .nav-tabs > li.active {
 display: block;
@@ -1584,12 +1578,19 @@ border-radius: 0px;
 Moreno</a></h4>
 <h4 class="author"><a href="https://github.com/philneff">Phil
 Neff</a></h4>
-<h4 class="date">22 September, 2021</h4>
+<h4 class="date">20 April, 2023</h4>
 
 </div>
 
 
-<p>The average number of ALPR reads per unique plate is: 1.3710624</p>
+<div id="heading-1" class="section level1">
+<h1>Heading 1</h1>
+<div id="heading-2" class="section level2">
+<h2>Heading 2</h2>
+<p>The average number of <strong>ALPR</strong> reads per <em>unique</em>
+plate is: 1.37</p>
+</div>
+</div>
 
 
 
