@@ -19,9 +19,117 @@ output:
 ```{r import, echo=FALSE, message=FALSE, include=TRUE}
 
 library(pacman)
-p_load(tidyverse)
+p_load(tidyverse) 
+p_load(lubridate) 
+p_load(ggmap) 
+p_load(scales)
 
-df <- read_delim(here::here('write', 'input', 'spd-alpr-pub.csv.gz'), delim='|')
+df <- read_delim(here::here('write', 'input', 'spd-alpr-pub.csv.gz'), delim='|',
+                    col_types = cols(dt = col_datetime(format="%m/%d/%Y - %H:%M:%S")
+                                  ))
+
+df <- df %>% 
+  mutate(year = year(dt),
+         month = month(dt),
+         day = day(dt),
+         hour = hour(dt),
+         minute = minute(dt),
+         wday = wday(dt),
+         date = ymd(paste(year, month, day, sep='-')))
+
+df$missing_address = is.na(df$address)
+
+ggkey = Sys.getenv("GEOCODE_API_KEY")
+register_google(key = ggkey)
+
+
+```
+
+# Introduction
+
+The data set captures one week of Seattle Police Department ALPR activity obtained through [FOIAs?].
+
+# Variables
+
+## License Plate Reads
+
+Each time a license plate is detected by the ALPR device, the system records the date and time of the detection and the location of the license plate hit, including the exact longitude and latitude coordinates and the full address. This information revealed insight about the frequency and intensity of the surveillance prigran and the areas where it is used.
+
+## Socioeconomic Demographics
+
+## Race Demographics
+
+
+```{r overview and maps, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, include=FALSE}
+
+total_reads  <- nrow(df)
+
+dtrange <- range(df$dt)
+
+plot_color = "#ff7863"
+
+base <- ggmap(get_googlemap(center = c(lon = -122.335167, 
+           lat = 47.738018),zoom = 10, scale = 1, 
+           maptype ='roadmap')
+           ) 
+
+seattle <- ggmap(get_googlemap(center = c(lon = -122.332115, 
+           lat = 47.636462),zoom = 11, scale = 1, 
+           maptype ='roadmap')
+           ) 
+
+plotmap_all_reads <- base +   
+  geom_point(aes(x = lon, y = lat), data = df, color = "black", fill=plot_color, 
+             shape= 21, size = 1, stroke = .2) + 
+  theme_void() + 
+  labs(title = "Figure 1: Overview of All Reads",
+       subtitle = "Nearly all of the non-Seattle reads are located along the journey to a prison in Monroe",
+       caption = "Source: SPD")  
+
+
+# Plot all observations onto Seattle map
+heatmap_all_reads <- seattle + 
+  stat_density2d(aes(x = lon, y = lat, fill = ..level.., alpha = .1), 
+                 size = 0.01, bins = 100, data = df, geom = "polygon") + 
+  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
+  geom_point(aes(x = lon, y = lat), data = df,color = "black", fill=plot_color, 
+             shape= 21, size = .3, alpha = .01, stroke = .15) + 
+  theme_void() + theme(legend.position="none") + 
+  labs(title = "Figure 2: Seattle Heat Map with Plotted Reads",
+       subtitle = "Plates are more likely to be caught on camera near SPD precincts",
+       caption = "Source: SPD")  
+
+```
+
+# Overview
+
+Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange`. Figure 1 provides an overview of the geographic distribution of these reads. Nearly all of the non-Seattle reads are located along the journey to a prison north of Seattle. For a closer look, Figure 2 depicts a zoomed-in map and highlights areas with the highest concentration of ALPR reads through brighter colors. The most read-dense areas are located near SPD precincts. Notably, there are no reads in West Seattle and very few reads in East Capitol Hill and waterfront neighborhoods like Magnolia.
+
+`r plotmap_all_reads`
+`r heatmap_all_reads`
+
+```{r describe device and reads, echo=FALSE, message=FALSE, include=FALSE}
+
+reads_per_device <- df %>% 
+  group_by(device) %>% 
+  summarize(n = n())
+
+max_reads_per_device <- max(reads_per_device$n)
+
+avg_reads_per_device <- mean(reads_per_device$n)
+
+device_count <- length(unique(reads_per_device$device))
+
+reads_missing_address <- df %>%
+  filter(missing_address %in% c('TRUE'))
+
+devices_missing_address = reads_missing_address %>%
+  filter(device== "SPD2020537MDC" | device == "BXH9904 SPD2020627MDC")  %>%
+  nrow()
+devices_missing_address_p = devices_missing_address / total_reads * 100
+
+unique_plates <- length(unique(df$plate_hash, na.rm=TRUE))
+unique_plates_p <- unique_plates / total_reads *100
 
 plate_freq <- df %>% 
   group_by(plate_hash) %>% 
@@ -30,10 +138,114 @@ plate_freq <- df %>%
 
 avg_reads <- mean(plate_freq$n)
 
+one_read <- plate_freq %>% 
+  filter(n == 1) %>% 
+  nrow()
+one_read_p <- one_read / unique_plates *100
+
+multi_read <- plate_freq %>% 
+  filter(n > 1) %>% 
+  nrow()
+multi_read_p <- multi_read / unique_plates *100
+
 ```
 
-# Heading 1 
 
-## Heading 2 
+The dataset consists of `r device_count` devices. Each device captured an average of `r `avg_reads_per_device` license plates, with the most device capturing `r max_reads_per_device` plates. Two devices were not accompanied by any addresses, comprising `r round(devices_missing_address_p, 0)`% of the reads in the data. Another two devices were attached to parking enforcement officers (PEO). Reads from PEO devices account for % of reads in the dataset. 
 
-The average number of **ALPR** reads per *unique* plate is: `r round(avg_reads, 2)`
+
+Of the license plates captured, `r one_read plates` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each *unique* license plate was captured 'r round(avg_reads, 2)' times.
+
+```{r describe date and time, echo=FALSE, message=FALSE, include=FALSE}
+
+reads_per_day <- df %>% 
+  group_by(wday) %>% 
+  summarize(n = n()) 
+max_reads_per_day <- max(reads_per_day)
+
+reads_per_min <- df %>% 
+  group_by(day, hour, minute) %>% 
+  summarize(n = n()) 
+max_reads_per_min <- max(reads_per_min)
+
+hist_reads_per_hour <- df %>%
+  ggplot( aes(x=hour)) +
+    geom_histogram( bins = 24, binwidth=1, 
+                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(breaks = seq(0,23, by = 1)) +
+   labs(y = "Reads per Hour", 
+        x = "Hour of Day",
+        title = "Figure 3: SPD ALPR Collection by Time of Day",
+        subtitle = "ALPR activity was busiest in the middle of the day",
+        caption = "Source: SPD")
+
+hist_reads_per_day <- df %>%
+  ggplot( aes(x=wday)) +
+    geom_histogram( bins = 7, binwidth=.5, 
+                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
+    "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
+     labs(y = "Reads per Day", 
+          x = "Day of the Week",
+          title = "Figure 4: SPD ALPR Collection by Day of the Week",
+          subtitle = "ALPR activity was busiest on weekdays",
+          caption = "Source: SPD") 
+
+```
+
+Contrary to our expectations, SPD devices were relatively inactive during the beginning of the work day. Figures 3 and 4 show that devices collected the most data on weekdays, particularly between 12:00 pm and 6:00 pm. On the busiest day in our data set, SPD cameras captured `r max_reads_per_day` license plates. Up to `r max_reads_per_min` plates were captured in a single minute. 
+
+`r hist_reads_per_hour`
+`r hist_reads_per_day`
+
+```{r detailed maps, echo=FALSE, message=FALSE, warning=FALSE}
+
+heatmap_downtown <- ggmap(
+  get_googlemap(center = c(lon = -122.334480, lat = 47.605026), 
+                zoom = 15, scale = 1, maptype ='roadmap', color = 'color')) +
+  stat_density2d(
+    aes(x = lon, y = lat, fill = ..level.., alpha = ..level..),
+    data = df,geom = "polygon") + 
+  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
+  theme_void()  +
+  theme(legend.position="none") + 
+    labs(title = "ALPR Activity in Downtown Seattle",
+       subtitle = "",
+       caption = "Source: SPD") 
+  
+
+heatmap_spdnorth <- ggmap(
+  get_googlemap(center = c(lon = -122.334724, lat = 47.702875), 
+                zoom = 15, scale = 1, maptype ='roadmap', color = 'color')) + 
+  stat_density2d(
+    aes(x = lon, y = lat, fill = ..level.., alpha = .1),bins = 1000, data = df,
+    geom = "polygon") + 
+  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
+  # geom_point(
+  #   aes(x = lon, y = lat), data = labels, color = "black", fill=plot_color, 
+  #   shape= 21, size = .1, stroke = .1) +
+  # geom_label_repel(
+  #   aes(lon, lat, label = label), data=labels, 
+  #   min.segment.length = unit(0, 'lines'),
+  #   family = 'sans', size = 3, segment.color = "black") + 
+  theme_void()  +
+  theme(legend.position="none") + 
+    labs(title = "ALPR Activity in North Seattle",
+       subtitle = "Patrol cars travelling to and from police headquarters likely account for increased hits in North Seattle suburbs",
+       caption = "Source: SPD") 
+
+
+
+```
+
+# Deeper Dive
+
+`r heatmap_downtown`
+While license plates all throughout downtown are likely to be captured by the ALPR system, we have observed that specific neighborhoods, such as East Capitol Hill, appear to go entirely unmonitored.
+
+
+`r heatmap_spdnorth`
+SPD's North Precinct is located near the Northgate Transit Center, which suggests that the higher frequency of reads in this area may be due to patrol cars traveling to and from police headquarters.
+
