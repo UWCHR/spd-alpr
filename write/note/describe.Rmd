@@ -65,14 +65,6 @@ The data set captures one week of Seattle Police Department ALPR activity obtain
 
 Each time a license plate is detected by the ALPR device, the system records the date and time of the detection and the location of the license plate hit, including the exact longitude and latitude coordinates and the full address. This information revealed insight about the frequency and intensity of the surveillance program and the areas where it is used.
 
-*couple sentences about the bad reads, few examples, didn't clean up the data because they do represent somethin about the presence of ALPR readers
-
-*move the note below about what onces we ditched, ie: i-5 and stuff to here
-
-## Socioeconomic Demographics
-
-## Race Demographics
-
 
 ```{r descriptive stats:reads, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
 
@@ -106,6 +98,9 @@ multi_read_p <- multi_read / unique_plates *100
 ## UPDATE: ditch the pie charts; do a table of the missingness by device. this will confirm that all missings in the 2 devices i pulled out:)
 ## WHAT'S MEANINGFUL TO LOOK AT: chart of missingness by device by date and time (figure 7b but add date). Beef up that device analysis section, we wanna have what distinguishes them from anotha beyond the date/time of reads 
 
+# # *couple sentences about the bad reads, few examples, didn't clean up the data because they do represent somethin about the presence of ALPR readers
+# 
+# *move the note below about what onces we ditched, ie: i-5 and stuff to here
 
 ```
 
@@ -285,9 +280,6 @@ heatmap_spdnorth <- ggmap(
 heatmap_spdnorth
 
 ```
-### Figure 5: Heat Map of ALPR Reads [king county airport]
-
-### Figure 6: Heat Map of ALPR Reads [u-village]
 
 
 ## Investigating the ALPR Devices in Use
@@ -425,7 +417,7 @@ bar_reads_per_hour_missing <- df %>%
         x = "Hour of Day",
         caption = "Source: SPD")
 
-bar_reads_per_hour_missing
+# bar_reads_per_hour_missing
 
 ```
 
