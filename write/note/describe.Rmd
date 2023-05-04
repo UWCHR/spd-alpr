@@ -27,6 +27,8 @@ p_load(scales)
 p_load(leaflet)
 p_load(leaflet.extras)
 
+options(scipen = 999)
+
 df <- read_delim(here::here('write', 'input', 'spd-alpr-pub.csv.gz'), delim='|',
                     col_types = cols(dt = col_datetime(format="%m/%d/%Y - %H:%M:%S")
                                   ))
@@ -63,6 +65,10 @@ The data set captures one week of Seattle Police Department ALPR activity obtain
 
 Each time a license plate is detected by the ALPR device, the system records the date and time of the detection and the location of the license plate hit, including the exact longitude and latitude coordinates and the full address. This information revealed insight about the frequency and intensity of the surveillance program and the areas where it is used.
 
+*couple sentences about the bad reads, few examples, didn't clean up the data because they do represent somethin about the presence of ALPR readers
+
+*move the note below about what onces we ditched, ie: i-5 and stuff to here
+
 ## Socioeconomic Demographics
 
 ## Race Demographics
@@ -94,17 +100,25 @@ multi_read <- plate_freq %>%
   nrow()
 multi_read_p <- multi_read / unique_plates *100
 
-#phil gave the go ahead for labels!! be strategic about which ones to include though (like the i-5, prison, precinct AND include the note on why we leave some of these out)
+
+
+#Distribution of hits per zip code per device (including missing– there’s one zip code category thats NA and we treat NA as if it was a zipcode )  
+## UPDATE: ditch the pie charts; do a table of the missingness by device. this will confirm that all missings in the 2 devices i pulled out:)
+## WHAT'S MEANINGFUL TO LOOK AT: chart of missingness by device by date and time (figure 7b but add date). Beef up that device analysis section, we wanna have what distinguishes them from anotha beyond the date/time of reads 
+
 
 ```
 
 # Analysis 
 
-Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange[1]` to `r dtrange[2]`. Of the license plates captured, `r one_read` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each *unique* license plate was captured `r round(avg_reads, 2)` times.
+Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange[1]` to `r dtrange[2]`. Of the license plates captured, `r one_read` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each unique license plate was captured `r round(avg_reads, 2)` times.
 
 ## Analyzing the Spatial Deployment of SPD's ALPR System
 
-Figure 1 provides an overview of the geographic distribution of these reads. Nearly all of the non-Seattle reads are located along the journey to a prison north of Seattle. For a closer look, Figures 2, 3, and 4 depict zoomed-in maps that highlights areas with the highest concentration of ALPR reads through brighter colors. The most read-dense areas are located near SPD precincts. Notably, there are no reads in West Seattle and very few reads in East Capitol Hill and waterfront neighborhoods like Magnolia.
+Figure 1 provides an overview of the geographic distribution of these reads. Nearly all of the non-Seattle reads are located along the journey to a prison north of Seattle. These reads were coded as "I-5". We opted to remove these reads. 
+
+For a closer look, Figures 2, 3, and 4 depict zoomed-in maps that highlights areas with the highest concentration of ALPR reads through brighter colors. The most read-dense areas are located near SPD precincts. Notably, there are no reads in West Seattle and very few reads in East Capitol Hill and waterfront neighborhoods like Magnolia.
+
 
 ### Figure 1: Overview of All Reads
 
@@ -190,6 +204,7 @@ leaflet_all_reads <- leaflet(df) %>%
         "border-color" = "rgba(0,0,0,0.5)"))) 
 
 leaflet_all_reads
+
 ```
 
 ### Figure 2: Heat Map of ALPR Reads
@@ -270,6 +285,9 @@ heatmap_spdnorth <- ggmap(
 heatmap_spdnorth
 
 ```
+### Figure 5: Heat Map of ALPR Reads [king county airport]
+
+### Figure 6: Heat Map of ALPR Reads [u-village]
 
 
 ## Investigating the ALPR Devices in Use
@@ -300,13 +318,16 @@ peo_device_reads_p = peo_device_reads / total_reads * 100
 
 ```
 
-The data set consists of `r device_count` devices. Each device captured an average of `r avg_reads_per_device` license plates, with the most device capturing `r max_reads_per_device` plates. Two devices were completely missing addresses, comprising `r round(devices_missing_address_p, 0)` % of all reads in the data. Another two devices were attached to parking enforcement officer vehicles (PEO). Reads from PEO devices account for  `r round(peo_device_reads_p, 0)`% of reads in the data set. 
+The data set consists of `r device_count` devices. Each device captured an average of `r round(avg_reads_per_device, 0)` license plates, with the most device capturing `r max_reads_per_device` plates. Two devices were completely missing addresses, comprising `r round(devices_missing_address_p, 0)`% of all reads in the data. Another two devices were attached to parking enforcement officer vehicles (PEO). Reads from PEO devices account for  `r round(peo_device_reads_p, 0)`% of reads in the data set. 
 
 ### Figure 5: Tracking the Movements of ALPR Devices
 The path of one active ALPR device is depicted below. The maps show where the device captured license plates on camera throughout the week 
 
 ```{r map device path, echo=FALSE, message=FALSE, warning=FALSE}
-#Need to check with Phil if geom_line OR geom_path is better; R said geom_line is more useful for time series, but my research says the opposite?
+
+#once i finish priority edits, troubleshoot why my get google map call isn't working (panels are way too small rn)
+
+#phil gave go ahead to just manually add the day names, take from code below. can keep trying once higher priority tasks are finished (also now that geom_path was approved, change legend)
 
 base <- get_map("seattle, washington", zoom = 11, maptype = c("roadmap"))
 
@@ -315,9 +336,9 @@ device_M207541 <- df %>%
   filter(device == "M207541_Deleted_2021-10-21_22 50:42")
 
 device_M207541_map <- ggmap(base) + 
-  geom_line(data = device_M207541, aes(x = lon, y = lat, color = hour(dt), 
+  geom_path(data = device_M207541, aes(x = lon, y = lat, color = hour(dt),
                                        group = device)) + 
-  facet_wrap(~day(dt), strip.position = "bottom",  ncol = 3) +
+  facet_wrap(~date, strip.position = "bottom",  ncol = 3) +
   theme_void() + 
    theme(
      plot.caption = element_text(face = "italic"), 
