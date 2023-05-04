@@ -23,6 +23,8 @@ p_load(tidyverse)
 p_load(lubridate) 
 p_load(ggmap) 
 p_load(scales)
+p_load(leaflet)
+p_load(leaflet.extras)
 
 df <- read_delim(here::here('write', 'input', 'spd-alpr-pub.csv.gz'), delim='|',
                     col_types = cols(dt = col_datetime(format="%m/%d/%Y - %H:%M:%S")
@@ -35,7 +37,12 @@ df <- df %>%
          hour = hour(dt),
          minute = minute(dt),
          wday = wday(dt),
-         date = ymd(paste(year, month, day, sep='-')))
+         date = ymd(paste(year, month, day, sep='-')),
+         day_name = lubridate::wday(date, label = TRUE, abbr = FALSE))
+
+ampm <- function(hr) paste((hr-1) %% 12 + 1, ifelse(hr %% 24 < 12, "am", "pm"))
+
+
 
 df$missing_address = is.na(df$address)
 
@@ -60,80 +67,11 @@ Each time a license plate is detected by the ALPR device, the system records the
 ## Race Demographics
 
 
-```{r overview and maps, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+```{r descriptive stats:reads, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
 
 total_reads  <- nrow(df)
 
 dtrange <- range(df$dt)
-```
-
-# Analysis 
-
-## Overview
-
-Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange[1]` to `r dtrange[2]`. Figure 1 provides an overview of the geographic distribution of these reads. Nearly all of the non-Seattle reads are located along the journey to a prison north of Seattle. For a closer look, Figure 2 depicts a zoomed-in map and highlights areas with the highest concentration of ALPR reads through brighter colors. The most read-dense areas are located near SPD precincts. Notably, there are no reads in West Seattle and very few reads in East Capitol Hill and waterfront neighborhoods like Magnolia.
-
-```{r figure 1 and 2,  echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
-#phil gave the go ahead for latex code!! make sure it knits in OG file then just paste it over here its all ready to go
-
-plot_color = "#ff7863"
-
-base <- ggmap(get_googlemap(center = c(lon = -122.335167, 
-           lat = 47.738018),zoom = 10, scale = 1, 
-           maptype ='roadmap')
-           ) 
-
-seattle <- ggmap(get_googlemap(center = c(lon = -122.332115, 
-           lat = 47.636462),zoom = 11, scale = 1, 
-           maptype ='roadmap')
-           ) 
-
-plotmap_all_reads <- base +   
-  geom_point(aes(x = lon, y = lat), data = df, color = "black", fill=plot_color, 
-             shape= 21, size = 1, stroke = .2) + 
-  theme_void() + 
-  labs(title = "Figure 1: Overview of All Reads",
-       subtitle = "Nearly all of the non-Seattle reads are located along the journey to a prison in Monroe",
-       caption = "Source: SPD")  
-
-plotmap_all_reads
-
-# Plot all observations onto Seattle map
-heatmap_all_reads <- seattle + 
-  stat_density2d(aes(x = lon, y = lat, fill = ..level.., alpha = .1), 
-                 size = 0.01, bins = 100, data = df, geom = "polygon") + 
-  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
-  geom_point(aes(x = lon, y = lat), data = df,color = "black", fill=plot_color, 
-             shape= 21, size = .3, alpha = .01, stroke = .15) + 
-  theme_void() + theme(legend.position="none") + 
-  labs(title = "Figure 2: Seattle Heat Map with Plotted Reads",
-       subtitle = "Plates are more likely to be caught on camera near SPD precincts",
-       caption = "Source: SPD")  
-
-heatmap_all_reads
-
-```
-
-
-```{r describe device and reads, echo=FALSE, message=FALSE, include=FALSE}
-
-reads_per_device <- df %>% 
-  group_by(device) %>% 
-  summarize(n = n())
-
-max_reads_per_device <- max(reads_per_device$n)
-
-avg_reads_per_device <- mean(reads_per_device$n)
-
-device_count <- length(unique(reads_per_device$device))
-
-reads_missing_address <- df %>%
-  filter(missing_address %in% c('TRUE'))
-
-devices_missing_address = reads_missing_address %>%
-  filter(device== "SPD2020537MDC" | device == "BXH9904 SPD2020627MDC")  %>%
-  nrow()
-devices_missing_address_p = devices_missing_address / total_reads * 100
 
 unique_plates <- length(unique(df$plate_hash, na.rm=TRUE))
 unique_plates_p <- unique_plates / total_reads *100
@@ -155,76 +93,136 @@ multi_read <- plate_freq %>%
   nrow()
 multi_read_p <- multi_read / unique_plates *100
 
-```
-
-
-The dataset consists of `r device_count` devices. Each device captured an average of `r `avg_reads_per_device` license plates, with the most device capturing `r max_reads_per_device` plates. Two devices were not accompanied by any addresses, comprising `r round(devices_missing_address_p, 0)` % of the reads in the data. Another two devices were attached to parking enforcement officers (PEO). Reads from PEO devices account for [add]% of reads in the dataset. 
-
-
-Of the license plates captured, `r one_read` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each *unique* license plate was captured `r round(avg_reads, 2)` times.
-
-```{r describe date and time, echo=FALSE, message=FALSE}
-
-reads_per_day <- df %>% 
-  group_by(wday) %>% 
-  summarize(n = n()) 
-max_reads_per_day <- max(reads_per_day)
-
-reads_per_min <- df %>% 
-  group_by(day, hour, minute) %>% 
-  summarize(n = n()) 
-max_reads_per_min <- max(reads_per_min)
+#phil gave the go ahead for labels!! be strategic about which ones to include though (like the i-5, prison, precinct AND include the note on why we leave some of these out)
 
 ```
 
-Contrary to our expectations, SPD devices were relatively inactive during the beginning of the work day. Figures 3 and 4 show that devices collected the most data on weekdays, particularly between 12:00 pm and 6:00 pm. On the busiest day in our data set, SPD cameras captured `r max_reads_per_day` license plates. Up to `r max_reads_per_min` plates were captured in a single minute. 
+# Analysis 
 
-```{r time graphics, echo=FALSE, message=FALSE}
-#can do geombar instead of hist call
-#lubridate wday to transform my day vars see (?wday) to code example
-#see proportions of the bar colored by devices, see which devices are active which days (may just be for us but make sure to create it!!)
-#graphic w/devices missing location shaded in a diff way (make it gray? diagonal line? transparent? some cool way to visualize the amt of data we don't have. will have to use geom bar / col)
+Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange[1]` to `r dtrange[2]`. Of the license plates captured, `r one_read` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each *unique* license plate was captured `r round(avg_reads, 2)` times.
 
+## Analyzing the Spatial Deployment of SPD's ALPR System
 
-hist_reads_per_hour <- df %>%
-  ggplot( aes(x=hour)) +
-    geom_histogram( bins = 24, binwidth=1, 
-                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  scale_y_continuous(labels = comma) +
-  scale_x_continuous(breaks = seq(0,23, by = 1)) +
-   labs(y = "Reads per Hour", 
-        x = "Hour of Day",
-        title = "Figure 3: SPD ALPR Collection by Time of Day",
-        subtitle = "ALPR activity was busiest in the middle of the day",
-        caption = "Source: SPD")
+Figure 1 provides an overview of the geographic distribution of these reads. Nearly all of the non-Seattle reads are located along the journey to a prison north of Seattle. For a closer look, Figures 2, 3, and 4 depict zoomed-in maps that highlights areas with the highest concentration of ALPR reads through brighter colors. The most read-dense areas are located near SPD precincts. Notably, there are no reads in West Seattle and very few reads in East Capitol Hill and waterfront neighborhoods like Magnolia.
 
-hist_reads_per_hour
+### Figure 1: Overview of All Reads
 
-hist_reads_per_day <- df %>%
-  ggplot( aes(x=wday)) +
-    geom_histogram( bins = 7, binwidth=.5, 
-                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  scale_y_continuous(labels = comma) +
-  scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
-    "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
-     labs(y = "Reads per Day", 
-          x = "Day of the Week",
-          title = "Figure 4: SPD ALPR Collection by Day of the Week",
-          subtitle = "ALPR activity was busiest on weekdays",
-          caption = "Source: SPD") 
+```{r leaflet map all reads,  echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+#See if Phil still wants the basic plot map here, or just the leaflet interactive plot map!
 
-hist_reads_per_day
+plot_color = "#ff7863"
+
+#Build  map 
+leaflet_all_reads <- leaflet(df) %>% 
+  addProviderTiles(providers$CartoDB.VoyagerLabelsUnder) %>%
+  addCircleMarkers(
+    radius = 2,
+    color = "black",
+    fillColor = plot_color,
+    stroke = TRUE,  weight = .3,
+    fillOpacity = 0.1) %>%
+  addMarkers(
+    lng = -122.3345865, lat = 47.70302542,
+    label = "Seattle Police Department, North Precinct",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) %>%
+  addMarkers(
+    lng = -122.299097, lat = 47.66211867,
+    label = "University Village",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) %>%
+  addMarkers(
+    lng = -122.3038448, lat = 47.53708176,
+    label = "King County Airport",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) %>%
+  addMarkers(
+    lng = -122.3159617, lat = 47.67653678,
+    label = "Roosevelt Light Rail Station",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) %>%
+    addMarkers(
+    lng = -122.3364106, lat = 47.61620391,
+    label = "Seattle Police Department, West Precinct",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) %>%
+  addMarkers(
+    lng = -121.9996418, lat = 47.84514158,
+    label = "Monroe Correctional Complex",
+    labelOptions = labelOptions(noHide = T, direction = "bottom",
+      style = list(
+        "color" = "black",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "12px",
+        "border-color" = "rgba(0,0,0,0.5)"))) 
+
+leaflet_all_reads
+```
+
+### Figure 2: Heat Map of ALPR Reads
+
+License plates are more likely to be captured on camera in the vicinity of SPD precincts.
+
+```{r heatmap all reads,  echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
+
+seattle <- ggmap(get_googlemap(center = c(lon = -122.332115, 
+           lat = 47.636462),zoom = 11, scale = 1, 
+           maptype ='roadmap')
+           ) 
+
+# Plot all observations onto Seattle map
+heatmap_all_reads <- seattle + 
+  stat_density2d(aes(x = lon, y = lat, fill = ..level.., alpha = .1), 
+                 size = 0.01, bins = 100, data = df, geom = "polygon") + 
+  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
+  geom_point(aes(x = lon, y = lat), data = df,color = "black", fill=plot_color, 
+             shape= 21, size = .3, alpha = .01, stroke = .15) + 
+  theme_void() + 
+  theme(legend.position="none",
+             plot.caption = element_text(face = "italic")) + 
+  labs(caption = "Source: SPD")  
+
+heatmap_all_reads
 
 ```
 
-## Closer Look at ALPR Activity
-
+### Figure 3: Heat Map of ALPR Reads in Downtown Seattle
 
 While license plates all throughout downtown are likely to be captured by the ALPR system, we have observed that specific neighborhoods, such as East Capitol Hill, appear to go entirely unmonitored.
 
 ```{r downtown heat map, echo=FALSE, message=FALSE, warning=FALSE}
-#add actual pathing of a device, choose the cool looking ones
-#phil gave the go ahead for labels!! be strategic about which ones to include though (like the i-5, prison, precinct AND include the note on why we leave some of these out)
 
 heatmap_downtown <- ggmap(
   get_googlemap(center = c(lon = -122.334480, lat = 47.605026), 
@@ -234,16 +232,17 @@ heatmap_downtown <- ggmap(
     data = df,geom = "polygon") + 
   scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
   theme_void()  +
-  theme(legend.position="none") + 
-    labs(title = "ALPR Activity in Downtown Seattle",
-       subtitle = "",
-       caption = "Source: SPD") 
+  theme(legend.position="none",
+             plot.caption = element_text(face = "italic")) + 
+    labs(caption = "Source: SPD") 
   
 heatmap_downtown
 
 ```
 
-SPD's North Precinct is located near the Northgate Transit Center, which suggests that the higher frequency of reads in this area may be due to patrol cars traveling to and from police headquarters.
+### Figure 4: Heat Map of ALPR Reads in North Seattle
+
+SPD's North Precinct is located near the Northgate Transit Center, which suggests that the higher frequency of reads in this area may be due to patrol cars traveling to and from police headquarters. 
 
 ```{r spd north heat map, echo=FALSE, message=FALSE, warning=FALSE}
 heatmap_spdnorth <- ggmap(
@@ -261,11 +260,147 @@ heatmap_spdnorth <- ggmap(
   #   min.segment.length = unit(0, 'lines'),
   #   family = 'sans', size = 3, segment.color = "black") + 
   theme_void()  +
-  theme(legend.position="none") + 
-    labs(title = "ALPR Activity in North Seattle",
-       subtitle = "Patrol cars travelling to and from police headquarters likely account for increased hits in North Seattle suburbs",
-       caption = "Source: SPD") 
+  theme(legend.position="none",
+             plot.caption = element_text(face = "italic")) + 
+    labs(caption = "Source: SPD") 
 
 heatmap_spdnorth
 
 ```
+
+
+## Investigating the ALPR Devices in Use
+
+```{r describe device and reads, echo=FALSE, message=FALSE, include=FALSE}
+
+reads_per_device <- df %>% 
+  group_by(device) %>% 
+  summarize(n = n())
+
+max_reads_per_device <- max(reads_per_device$n)
+
+avg_reads_per_device <- mean(reads_per_device$n)
+
+device_count <- length(unique(reads_per_device$device))
+
+reads_missing_address <- df %>%
+  filter(missing_address %in% c('TRUE'))
+
+devices_missing_address = reads_missing_address %>%
+  filter(device== "SPD2020537MDC" | device == "BXH9904 SPD2020627MDC")  %>%
+  nrow()
+devices_missing_address_p = devices_missing_address / total_reads * 100
+
+peo_device_reads = sum(df$device== "PEO508459" | df$device == "PEOATG508533") 
+peo_device_reads_p = peo_device_reads / total_reads * 100
+
+
+```
+
+The data set consists of `r device_count` devices. Each device captured an average of `r avg_reads_per_device` license plates, with the most device capturing `r max_reads_per_device` plates. Two devices were completely missing addresses, comprising `r round(devices_missing_address_p, 0)` % of all reads in the data. Another two devices were attached to parking enforcement officer vehicles (PEO). Reads from PEO devices account for  `r round(peo_device_reads_p, 0)`% of reads in the data set. 
+
+### Figure 5: Tracking the Movements of ALPR Devices
+The path of one active ALPR device is depicted below. The maps show where the device captured license plates on camera throughout the week 
+
+```{r map device path, echo=FALSE, message=FALSE, warning=FALSE}
+
+base <- get_map("seattle, washington", zoom = 11, maptype = c("roadmap"))
+
+device_M207541 <- df %>%
+  arrange(device, dt) %>%
+  filter(device == "M207541_Deleted_2021-10-21_22 50:42")
+
+device_M207541_map <- ggmap(base) + 
+  geom_path(data = device_M207541, aes(x = lon, y = lat, color = hour(dt), group = device)) + 
+  facet_wrap(~day(dt), strip.position = "bottom",  ncol = 3) +
+  scale_fill_brewer(direction = 1) +
+  theme_void() + 
+   theme(
+     plot.caption = element_text(face = "italic"), 
+     legend.key.width = unit(50, "pt"), 
+     legend.position	= "bottom", 
+     legend.justification	= "center", 
+     legend.box = "horizontal",
+     legend.margin = margin(6, 6, 6, 6), 
+     strip.background = element_rect(colour = "black", 
+                                     fill = "white", size = .2),
+     strip.text.x = element_text(face = "bold", size = 10),
+     panel.spacing = unit(10, "pt")) + 
+    labs(
+       caption = "Source: SPD",
+       color = "Time of Day")
+
+device_M207541_map
+
+```
+
+## Examining ALPR System Usage During the Day
+
+```{r describe date and time, echo=FALSE, message=FALSE}
+
+reads_per_day <- df %>% 
+  group_by(wday) %>% 
+  summarize(n = n()) 
+max_reads_per_day <- max(reads_per_day)
+
+reads_per_min <- df %>% 
+  group_by(day, hour, minute) %>% 
+  summarize(n = n()) 
+max_reads_per_min <- max(reads_per_min)
+
+```
+
+Contrary to our expectations, SPD devices were relatively inactive during the beginning of the work day. Figures 4 and 5 show that devices collected the most data on weekdays, particularly between 12:00 pm and 6:00 pm. On the busiest day in our data set, SPD cameras captured `r max_reads_per_day` license plates. Up to `r max_reads_per_min` plates were captured in a single minute. 
+
+### Figure 6: SPD ALPR Collection by Time of Day
+ALPR activity was busiest in the middle of the day. 
+
+```{r bar plot reads by hour, echo=FALSE, message=FALSE, warning=FALSE}
+#see proportions of the bar colored by devices, see which devices are active which days (may just be for us but make sure to create it!!)
+
+#graphic w/devices missing location shaded in a diff way (make it gray? diagonal line? transparent? some cool way to visualize the amt of data we don't have. will have to use geom bar / col)
+
+bar_reads_per_hour <- df %>%
+  ggplot( aes(x=hour)) +
+    geom_bar(bins = 24, binwidth=1, 
+                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(labels = ampm,
+    breaks = function(z) pretty(z, n = 12)) +
+         theme(
+            axis.title = element_text(face = "bold"),
+            axis.text = element_text(face = "bold"),
+            axis.text.x = element_text(margin = margin(t = .3, unit = "cm")),
+           plot.caption = element_text(face = "italic")) +
+   labs(y = "Reads per Hour", 
+        x = "Hour of Day",
+        caption = "Source: SPD")
+
+bar_reads_per_hour
+
+```
+
+### Figure 7: SPD ALPR Collection by Day of the Week
+
+ALPR activity was busiest on weekdays. 
+```{r bar plot reads by day, echo=FALSE, message=FALSE, warning=FALSE}
+
+bar_reads_per_day <- df %>%
+  ggplot(aes(x=wday)) +
+    geom_bar( bins = 7, binwidth=.5, 
+                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
+    "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
+         theme(
+           axis.title = element_text(face = "bold"),
+           axis.text = element_text(face = "bold"),
+           plot.caption = element_text(face = "italic")) +
+  labs(y = "Reads per Day", 
+          x = "Day of the Week",
+          caption = "Source: SPD") 
+
+bar_reads_per_day
+
+```
+
