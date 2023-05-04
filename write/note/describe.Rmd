@@ -350,20 +350,17 @@ max_reads_per_min <- max(reads_per_min)
 
 ```
 
-Contrary to our expectations, SPD devices were relatively inactive during the beginning of the work day. Figures 4 and 5 show that devices collected the most data on weekdays, particularly between 12:00 pm and 6:00 pm. On the busiest day in our data set, SPD cameras captured `r max_reads_per_day` license plates. Up to `r max_reads_per_min` plates were captured in a single minute. 
+Contrary to our expectations, SPD devices were relatively inactive during the beginning of the work day. Figures 4 and 5 show that devices collected the most data in the middle of the work day, between 12:00 pm and 6:00 pm. On the busiest day in our data set, SPD cameras captured `r max_reads_per_day` license plates. Up to `r max_reads_per_min` plates were captured in a single minute. 
 
 ### Figure 6: SPD ALPR Collection by Time of Day
 ALPR activity was busiest in the middle of the day. 
 
 ```{r bar plot reads by hour, echo=FALSE, message=FALSE, warning=FALSE}
-#see proportions of the bar colored by devices, see which devices are active which days (may just be for us but make sure to create it!!)
-
-#graphic w/devices missing location shaded in a diff way (make it gray? diagonal line? transparent? some cool way to visualize the amt of data we don't have. will have to use geom bar / col)
 
 bar_reads_per_hour <- df %>%
   ggplot( aes(x=hour)) +
     geom_bar(bins = 24, binwidth=1, 
-                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+                    fill="#728FCE", color="#728FCE", alpha=0.9) +
   scale_y_continuous(labels = comma) +
   scale_x_continuous(labels = ampm,
     breaks = function(z) pretty(z, n = 12)) +
@@ -378,6 +375,33 @@ bar_reads_per_hour <- df %>%
 
 bar_reads_per_hour
 
+
+#Proportions of the bar colored by devices, see which devices are active which days 
+
+#graphic w/devices missing location shaded in a diff way (make it gray? diagonal line? transparent? some cool way to visualize the amt of data we don't have. 
+
+bar_reads_per_hour_missing <- df %>%
+  ggplot(aes(x=hour)) +
+  geom_bar(aes(fill = device),
+           bins = 24, binwidth=1, alpha=0.9) +
+    scale_y_continuous(labels = comma) +
+    scale_x_continuous(labels = ampm,
+                       breaks = function(z) pretty(z, n = 12)) +
+    scale_fill_manual("Devices with Missing Address Data", 
+                      values = c("SPD2020537MDC" = "red", 
+                                 "BXH9904 SPD2020627MDC" = "blue")) + 
+   theme(
+     plot.caption = element_text(face = "italic"), 
+     legend.position	= "bottom", 
+     legend.justification	= "center", 
+     legend.box = "horizontal",
+     legend.margin = margin(6, 6, 6, 6)) + 
+     labs(y = "Reads per Hour", 
+        x = "Hour of Day",
+        caption = "Source: SPD")
+
+bar_reads_per_hour_missing
+
 ```
 
 ### Figure 7: SPD ALPR Collection by Day of the Week
@@ -388,13 +412,14 @@ ALPR activity was busiest on weekdays.
 bar_reads_per_day <- df %>%
   ggplot(aes(x=wday)) +
     geom_bar( bins = 7, binwidth=.5, 
-                    fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+                    fill="#728FCE", color="#728FCE", alpha=0.9) +
   scale_y_continuous(labels = comma) +
   scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
     "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
          theme(
-           axis.title = element_text(face = "bold"),
-           axis.text = element_text(face = "bold"),
+            axis.title = element_text(face = "bold"),
+            axis.text = element_text(face = "bold"),
+            axis.text.x = element_text(margin = margin(t = .3, unit = "cm")),
            plot.caption = element_text(face = "italic")) +
   labs(y = "Reads per Day", 
           x = "Day of the Week",
