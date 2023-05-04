@@ -22,6 +22,7 @@ library(pacman)
 p_load(tidyverse) 
 p_load(lubridate) 
 p_load(ggmap) 
+p_load(ggrepel)
 p_load(scales)
 p_load(leaflet)
 p_load(leaflet.extras)
@@ -42,9 +43,9 @@ df <- df %>%
 
 ampm <- function(hr) paste((hr-1) %% 12 + 1, ifelse(hr %% 24 < 12, "am", "pm"))
 
-
-
 df$missing_address = is.na(df$address)
+
+labels <- read_delim(here::here('write', 'input', 'labels.csv'))
 
 ggkey = Sys.getenv("GEOCODE_API_KEY")
 register_google(key = ggkey)
@@ -110,7 +111,7 @@ Figure 1 provides an overview of the geographic distribution of these reads. Nea
 ```{r leaflet map all reads,  echo=FALSE, fig.align='center', message=FALSE, warning=FALSE}
 #See if Phil still wants the basic plot map here, or just the leaflet interactive plot map!
 
-plot_color = "#ff7863"
+plot_color = "#4b2e83"
 
 #Build  map 
 leaflet_all_reads <- leaflet(df) %>% 
@@ -127,7 +128,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "sans serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -138,7 +139,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "san serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -149,7 +150,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "sans serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -160,7 +161,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "sans serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -171,7 +172,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "sans serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -182,7 +183,7 @@ leaflet_all_reads <- leaflet(df) %>%
     labelOptions = labelOptions(noHide = T, direction = "bottom",
       style = list(
         "color" = "black",
-        "font-family" = "serif",
+        "font-family" = "sans serif",
         "font-style" = "bold",
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
@@ -204,11 +205,10 @@ seattle <- ggmap(get_googlemap(center = c(lon = -122.332115,
 
 # Plot all observations onto Seattle map
 heatmap_all_reads <- seattle + 
-  stat_density2d(aes(x = lon, y = lat, fill = ..level.., alpha = .1), 
-                 size = 0.01, bins = 100, data = df, geom = "polygon") + 
-  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
-  geom_point(aes(x = lon, y = lat), data = df,color = "black", fill=plot_color, 
-             shape= 21, size = .3, alpha = .01, stroke = .15) + 
+  stat_density2d(aes(x = lon, y = lat, 
+                     fill = ..level.., alpha = ..level..), 
+                 bins = 100, data = df, geom = "polygon") + 
+  scale_fill_distiller(palette = "Spectral") +
   theme_void() + 
   theme(legend.position="none",
              plot.caption = element_text(face = "italic")) + 
@@ -230,8 +230,8 @@ heatmap_downtown <- ggmap(
   stat_density2d(
     aes(x = lon, y = lat, fill = ..level.., alpha = ..level..),
     data = df,geom = "polygon") + 
-  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
-  theme_void()  +
+  scale_fill_distiller(palette = "Spectral") +
+   theme_void()  +
   theme(legend.position="none",
              plot.caption = element_text(face = "italic")) + 
     labs(caption = "Source: SPD") 
@@ -245,24 +245,27 @@ heatmap_downtown
 SPD's North Precinct is located near the Northgate Transit Center, which suggests that the higher frequency of reads in this area may be due to patrol cars traveling to and from police headquarters. 
 
 ```{r spd north heat map, echo=FALSE, message=FALSE, warning=FALSE}
+
 heatmap_spdnorth <- ggmap(
-  get_googlemap(center = c(lon = -122.334724, lat = 47.702875), 
-                zoom = 15, scale = 1, maptype ='roadmap', color = 'color')) + 
+  get_googlemap(
+    center = c(lon = -122.334724, lat = 47.702875), 
+    zoom = 15, scale = 1, maptype ='roadmap', color = 'color')) + 
   stat_density2d(
-    aes(x = lon, y = lat, fill = ..level.., alpha = .1),bins = 1000, data = df,
+    aes(x = lon, y = lat, fill = ..level.., alpha = ..level..),
+    bins = 1000, data = df,
     geom = "polygon") + 
-  scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(7, "Spectral"))) +
-  # geom_point(
-  #   aes(x = lon, y = lat), data = labels, color = "black", fill=plot_color, 
-  #   shape= 21, size = .1, stroke = .1) +
-  # geom_label_repel(
-  #   aes(lon, lat, label = label), data=labels, 
-  #   min.segment.length = unit(0, 'lines'),
-  #   family = 'sans', size = 3, segment.color = "black") + 
+  scale_fill_distiller(palette = "Spectral") +
+  geom_point(
+    aes(x = lon, y = lat), data = labels, color = "black", fill="white",
+    shape= 23, size = 2, stroke = 1) +
+  geom_label_repel(
+    aes(lon, lat, label = label),
+    data=labels, min.segment.length = unit(0, 'lines')) +
   theme_void()  +
-  theme(legend.position="none",
-             plot.caption = element_text(face = "italic")) + 
-    labs(caption = "Source: SPD") 
+  theme(
+    legend.position="none",
+    plot.caption = element_text(face = "italic")) + 
+  labs(caption = "Source: SPD") 
 
 heatmap_spdnorth
 
@@ -303,6 +306,7 @@ The data set consists of `r device_count` devices. Each device captured an avera
 The path of one active ALPR device is depicted below. The maps show where the device captured license plates on camera throughout the week 
 
 ```{r map device path, echo=FALSE, message=FALSE, warning=FALSE}
+#Need to check with Phil if geom_line OR geom_path is better; R said geom_line is more useful for time series, but my research says the opposite?
 
 base <- get_map("seattle, washington", zoom = 11, maptype = c("roadmap"))
 
@@ -311,9 +315,9 @@ device_M207541 <- df %>%
   filter(device == "M207541_Deleted_2021-10-21_22 50:42")
 
 device_M207541_map <- ggmap(base) + 
-  geom_path(data = device_M207541, aes(x = lon, y = lat, color = hour(dt), group = device)) + 
+  geom_line(data = device_M207541, aes(x = lon, y = lat, color = hour(dt), 
+                                       group = device)) + 
   facet_wrap(~day(dt), strip.position = "bottom",  ncol = 3) +
-  scale_fill_brewer(direction = 1) +
   theme_void() + 
    theme(
      plot.caption = element_text(face = "italic"), 
@@ -360,7 +364,7 @@ ALPR activity was busiest in the middle of the day.
 bar_reads_per_hour <- df %>%
   ggplot( aes(x=hour)) +
     geom_bar(bins = 24, binwidth=1, 
-                    fill="#728FCE", color="#728FCE", alpha=0.9) +
+                    fill="#4b2e83", color="#4b2e83", alpha=0.9) +
   scale_y_continuous(labels = comma) +
   scale_x_continuous(labels = ampm,
     breaks = function(z) pretty(z, n = 12)) +
@@ -412,7 +416,7 @@ ALPR activity was busiest on weekdays.
 bar_reads_per_day <- df %>%
   ggplot(aes(x=wday)) +
     geom_bar( bins = 7, binwidth=.5, 
-                    fill="#728FCE", color="#728FCE", alpha=0.9) +
+                    fill="#4b2e83", color="#4b2e83", alpha=0.9) +
   scale_y_continuous(labels = comma) +
   scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
     "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
