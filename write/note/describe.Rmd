@@ -56,7 +56,7 @@ register_google(key = ggkey)
 
 ```
 
-# Introduction
+# Introduction 
 
 The data set captures one week of Seattle Police Department ALPR activity obtained through public records requests.
 
@@ -93,14 +93,13 @@ multi_read <- plate_freq %>%
   nrow()
 multi_read_p <- multi_read / unique_plates *100
 
-# # *couple sentences about the bad reads, few examples, didn't clean up the data because they do represent somethin about the presence of ALPR readers
-# *move the note below about what onces we ditched, ie: i-5 and stuff to here
-
 ```
 
 # Analysis 
 
 Our data set contains `r total_reads` instances where license plates were detected by SPD's surveillance system from `r dtrange[1]` (a Friday) to `r dtrange[2]` (a Friday). Of the license plates captured, `r one_read` reads, which accounts for `r round(one_read_p, 0)`% of the total reads, were only captured once. We also found that on average, each unique license plate was captured `r round(avg_reads, 2)` times.
+
+ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as  AHEAD, DETOUR, CLOSED, ROAD, and VVARNING) and other public signage (like POLICE, TOWAWAY, CROSSWALK, and PARKING). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide meaningful information about the presence of ALPR readers. 
 
 ## Analyzing the Spatial Deployment of SPD's ALPR System
 
