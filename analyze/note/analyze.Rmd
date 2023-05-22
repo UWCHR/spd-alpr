@@ -1,0 +1,181 @@
+---
+title: "SPD ALPR Analysis"
+author:
+- '[Destiny Moreno](https://github.com/dmorenouw)'
+- '[Phil Neff](https://github.com/philneff)'
+date: "20 April, 2023"
+output:
+  html_document:
+    html_preview: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    code_folding: hide
+  pdf_document:
+    toc: no
+    toc_depth: '3'
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(plotly)
+library(lme4)
+library(stargazer)
+
+# Restrict data to Seattle-area zipcodes
+zips <- yaml::read_yaml(here::here('analyze', 'hand', 'seattlezips.yaml'))
+
+spd_precinct_zips <- c(98106,
+                      98108,
+                      98101,
+                      98122,
+                      98133)
+
+census <- read_delim(here::here('analyze', 'input', 'census_vars.csv.gz'), delim='|')
+
+df <- read_delim(here::here('analyze', 'input', 'spd-alpr-pub.csv.gz'), delim='|',
+                 col_types = cols(license_plate = col_character(),
+                                  dt = col_datetime(format="%m/%d/%Y - %H:%M:%S"),
+                                  location = col_character(),
+                                  address = col_character(),
+                                  device = col_character(),
+                                  plate_hash = col_character(),
+                                  lon = col_double(),
+                                  lat = col_double()
+                                  ))
+
+#Mutate date variables
+df <- df %>% 
+  mutate(r_year = (year(dt)),
+         r_month = (month(dt)),
+         r_day = (day(dt)),
+         r_hour = (hour(dt)),
+         r_minute = (minute(dt)),
+         r_wday = (wday(dt)),
+         r_weekend = r_wday %in% c(1, 7),
+         r_date = (ymd(paste(r_year, r_month, r_day, sep='-'))))
+
+predictors <- c('median_incomeE',
+              'hispE',
+              'whiteE',
+              'blackE',
+              'nativeE',
+              'asianE',
+              'pacislE',
+              'multiE',
+              'otherE')
+
+
+df <- df %>% 
+  filter(zipcode %in% zips, # Restrict to Seattle-area zipcodes only
+        !is.na(zipcode), # Drop observations missing zipcode
+         !zipcode %in% c(98195), # Outlier zipcode: missing income estimates, policed by UWPD
+         # !grepl('I-5', address), # All plate reads on I-5 geolocated to two points, dropped
+        ) %>% 
+  mutate(spd_precinct = zipcode %in% spd_precinct_zips,
+        zipcode = as.factor(zipcode))
+
+glimpse(df)
+
+```
+
+# Introduction 
+
+This notebook presents results of a preliminary statistical analysis of one week of Seattle Police Department (SPD) Automated License Plate Reader (ALPR) data, obtained via public records request by the University of Washington Center for Human Rights (UWCHR).
+
+UWCHR is grateful to Jessica Godwin and UW Center for Studies in Demography and Ecology (CSDE) for consulting and feedback on this project.
+
+# About the data
+
+This dataset represents one week data from ALPR devices employed by SPD. Detailed descriptive analysis of these data is available here. Each observation in the dataset represents one license plate read by a given ALPR device, with an associated zipcode derived from the original dataset's address fields. Per comments from Jessica Godwin, we note that "zipcode" is not a policy-relevant geographic designation; future analysts are encouraged to explore alternative geographic units such as SPD precints or sectors.
+
+As noted in the descriptive analysis writeup, two ALPR devices representing approximately a quarter of total reads included no address information; these observations are dropped from this analysis. The analysis is restricted to zipcodes in the city of Seattle; and excludes the zipcode "98195", the University of Washington campus, for which no household income data are available, and which is policed by the University of Washington Police Department.
+
+# Analysis
+
+```{r model_setup_reads_per_zip_dev_date, echo=FALSE, message=FALSE, warning=FALSE}
+
+reads_per_zip_device_day <- df %>% 
+  group_by(zipcode, device, r_date, .drop = FALSE) %>% 
+  summarize(r_freq = n())
+
+reads_per_zip_device_day <- merge(reads_per_zip_device_day,
+                                  census,
+                                  by.x="zipcode", by.y="GEOID",
+                                  all.x = TRUE)
+
+reads_per_zip_device_day[, predictors] <- scale(reads_per_zip_device_day[, predictors])
+
+reads_per_zip_device_day <- reads_per_zip_device_day %>% 
+  mutate(r_wday = (wday(r_date)),
+         r_weekend = r_wday %in% c(1, 7),
+         spd_precinct = zipcode %in% spd_precinct_zips,
+         device = as.factor(device),
+         zipcode = as.factor(zipcode))
+
+```
+
+We attempted to model the relationship between license plate read frequency by location and a small selection of socio-economic estimates obtained via `tidycensus()`. We group the data at the level of plate reads per zipcode by device and date.  The resulting data, with `r nows(reads_per_zip_device_day)` observations, approximately conforms to a Poisson distribution:
+
+```{r hist, echo=FALSE, message=FALSE, warning=FALSE}
+
+hist(reads_per_zip_device_day$r_freq)
+
+# Summary stats table
+
+```
+
+Models with `zipcode` and `device` as REs find significant negative correlation between plate read frequency (`r_freq`) and `median_incomeE`, when including offset for total population per zipcode. (Results are similar when modeling `zipcode` and `device` as dummy variables.)
+
+```{r zip_device_day_income, echo=FALSE, message=FALSE, warning=FALSE}
+
+mod0.2 <- glmer('r_freq ~ (1 | zipcode) + (1 | device) + median_incomeE + r_weekend + spd_precinct',
+              offset=log(reads_per_zip_device_day$total_popE),
+              data=reads_per_zip_device_day,
+              family=poisson
+              )
+
+summary(mod0.2)
+
+```
+
+However, the model shows evidence of a high degree of overdispersion. Post-fit quasilikelihood estimation (see: https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#fitting-models-with-overdispersion) removes significance of `median_incomeE`:
+
+```{r overdisp_funcs, echo=FALSE, include=TRUE}
+
+# Source: https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#fitting-models-with-overdispersion
+
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+quasi_table <- function(model,ctab=coef(summary(model))) {
+    phi <- sum(residuals(model, type="pearson")^2)/df.residual(model)
+    qctab <- within(as.data.frame(ctab),
+    {   `Std. Error` <- `Std. Error`*sqrt(phi)
+        `z value` <- Estimate/`Std. Error`
+        `Pr(>|z|)` <- 2*pnorm(abs(`z value`), lower.tail=FALSE)
+    })
+    return(qctab)
+}
+
+```
+
+```{r zip_device_day_income_overdisp, echo=FALSE, message=FALSE, warning=FALSE}
+
+print(deviance(mod0.2)/df.residual(mod0.2))
+printCoefmat(quasi_table(mod0.2),digits=3)
+
+```
+
+
