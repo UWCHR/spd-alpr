@@ -93,7 +93,7 @@ UWCHR is grateful to Jessica Godwin and UW Center for Studies in Demography and 
 
 # About the data
 
-This dataset represents one week data from ALPR devices employed by SPD. Detailed descriptive analysis of these data is available here. Each observation in the dataset represents one license plate read by a given ALPR device, with an associated zipcode derived from the original dataset's address fields. Per comments from Jessica Godwin, we note that "zipcode" is not a policy-relevant geographic designation; future analysts are encouraged to explore alternative geographic units such as SPD precints or sectors.
+This dataset represents one week data from ALPR devices employed by SPD. Detailed descriptive analysis of these data [is available here](index.html). Each observation in the dataset represents one license plate read by a given ALPR device, with an associated zipcode derived from the original dataset's address fields. Per comments from Jessica Godwin, we note that "zipcode" is not a policy-relevant geographic designation; future analysts are encouraged to explore alternative geographic units such as SPD precints or sectors.
 
 As noted in the descriptive analysis writeup, two ALPR devices representing approximately a quarter of total reads included no address information; these observations are dropped from this analysis. The analysis is restricted to zipcodes in the city of Seattle; and excludes the zipcode "98195", the University of Washington campus, for which no household income data are available, and which is policed by the University of Washington Police Department.
 
@@ -137,7 +137,7 @@ stargazer(reads_per_zip_device_day, type='html')
 
 <br>
 
-Visual inspection of the bivariate relationship between plate read frequency (`r_freq`) and estimated median household income per zipcode (`median_incomeE`) does not show an obvious trend:
+Visual inspection of the bivariate relationship between plate read frequency (`r_freq`) and estimated median household income per zipcode (`median_incomeE`) does not show a strong trend:
 
 ```{r bivariate_scatter, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
