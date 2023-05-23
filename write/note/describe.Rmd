@@ -27,6 +27,9 @@ p_load(ggrepel)
 p_load(scales)
 p_load(leaflet)
 p_load(leaflet.extras)
+p_load(tigris)
+p_load(sf)
+
 
 options(scipen = 999)
 # Sys.setlocale("LC_TIME")
@@ -99,7 +102,7 @@ date_2 <- paste0(month(dtrange[2], label = TRUE, abbr = FALSE), ' ', day(dtrange
 
 The dataset contains **`r total_reads`** instances where potential license plates were detected by SPD's surveillance system from **`r date_1`** (a `r wday(dtrange[1], label=TRUE, abbr=FALSE)`) to **`r date_2`** (a `r wday(dtrange[2], label=TRUE, abbr=FALSE)`). Of the license plates captured, **`r one_read`** reads, which accounts for **`r round(one_read_p, 0)`%** of the total reads, were only captured once. We also found that on average, each unique license plate was captured **`r round(avg_reads, 2)`** times.
 
-ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as *AHEAD, DETOUR, CLOSED, ROAD*, and *VVARNING*) and other public signage (like *POLICE, TOWAWAY, CROSSWALK, *and *PARKING*). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide meaningful information about the presence of ALPR readers. 
+ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as *AHEAD, DETOUR, CLOSED, ROAD*, and *VVARNING*) and other public signage (like *POLICE, TOWAWAY, CROSSWALK*, and *PARKING*). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide meaningful information about the presence of ALPR readers. 
 
 # Analyzing the Spatial Deployment of SPD's ALPR System
 
@@ -300,6 +303,16 @@ heatmap_uvillage
 
 ```{r describe device and reads, echo=FALSE, message=FALSE, include=FALSE}
 
+#Label devices as they appear in the data (called names using unique function and labeled in the same order)
+df <- df %>%
+  mutate(device = factor(device) %>%
+           fct_recode(
+                        "A" = "SPD2020621MDC", "B" = "SPD2020681MDC", 
+                         "C" = "M207709", "D" = "M207541_Deleted_2021-10-21_22 50:42",
+                         "E" ="SPD2020602MDC", "F" = "PEOATG508533", 
+                         "G" = "PEO508459", "H" = "SPD2020537MDC", 
+                         "I" = "BXH9904 SPD2020627MDC"))
+
 reads_per_device<- df %>%
   group_by(device) %>%
   summarise(n=n(), 
@@ -324,11 +337,11 @@ reads_missing_address <- df %>%
   filter(missing_address %in% c('TRUE'))
 
 devices_missing_address = reads_missing_address %>%
-  filter(device== "SPD2020537MDC" | device == "BXH9904 SPD2020627MDC")  %>%
+  filter(device== "H" | device == "I")  %>%
   nrow()
 devices_missing_address_p = devices_missing_address / total_reads * 100
 
-peo_device_reads = sum(df$device== "PEO508459" | df$device == "PEOATG508533") 
+peo_device_reads = sum(df$device== "G" | df$device == "F") 
 peo_device_reads_p = peo_device_reads / total_reads * 100
 
 
@@ -345,7 +358,8 @@ Another two devices were attached to parking enforcement officer vehicles (PEO).
 ```{r table of devices, echo=FALSE, message=FALSE}
 
 table_reads_per_device <- kable(reads_per_device, 
-                                col.names=c('Device', 'Reads', 'Missing Address', 'Percent of Reads'),
+                                col.names=c('Device', 'Reads', 
+                                            'Missing Address', 'Percent of Reads'),
                                 row.names = F) %>%
      kable_styling(
        bootstrap_options = "bordered",
@@ -369,7 +383,7 @@ base <- get_map("seattle, washington", zoom = 11, maptype = c("roadmap"))
 # Filter data for specific device
 device_M207541 <- df %>%
   arrange(device, dt) %>%
-  filter(device == "M207541_Deleted_2021-10-21_22 50:42")
+  filter(device == "D")
 
 # Map device path 
 date_label <- c(
@@ -390,6 +404,7 @@ device_M207541_map <- ggmap(base) +
              labeller = as_labeller(date_label)) +
   theme_void() + 
    theme(
+     plot.subtitle = element_text(face = "bold"),      
      plot.caption = element_text(face = "italic"), 
      legend.key.width = unit(30, "pt"), 
      legend.position	= "bottom", 
@@ -402,7 +417,7 @@ device_M207541_map <- ggmap(base) +
                                 margin = margin(4, 2, 4, 2, "pt")),
      panel.spacing = unit(10, "pt")) + 
     labs(
-         subtitle = "",
+         subtitle = "Device 'D'",
          caption = "Source: SPD",
          color = "Time of Day")
 
@@ -418,7 +433,7 @@ everett <- get_map("everett, washington", zoom = 11, maptype = c("roadmap"))
 
 device_SPD2020621MDC <- df %>%
   arrange(device, dt) %>%
-  filter(device == "SPD2020621MDC")
+  filter(device == "A")
 
 device_SPD2020621MDC_map <- ggmap(everett) + 
   geom_path(data = device_SPD2020621MDC, aes(x = lon, y = lat, color = hour(dt),
@@ -427,6 +442,7 @@ device_SPD2020621MDC_map <- ggmap(everett) +
              labeller = as_labeller(date_label)) +
   theme_void() + 
    theme(
+     plot.subtitle = element_text(face = "bold"),      
      plot.caption = element_text(face = "italic"), 
      legend.key.width = unit(30, "pt"), 
      legend.position	= "bottom", 
@@ -439,7 +455,7 @@ device_SPD2020621MDC_map <- ggmap(everett) +
                                 margin = margin(4, 2, 4, 2, "pt")),
      panel.spacing = unit(10, "pt")) + 
     labs(
-      subtitle = "",
+      subtitle = "Device 'A'",
       caption = "Source: SPD",
       color = "Time of Day")
 
@@ -510,7 +526,7 @@ bar_reads_per_hour_per_day <- df %>%
                      breaks = function(z) pretty(z, n = 12)) +
   theme(
     axis.title = element_text(face = "bold"),
-    axis.text.x = element_text(margin = margin(t = .3, unit = "cm")), 
+    axis.text.x = element_text(angle = 90), 
     strip.background = element_rect(colour = "black",fill = "white", size = .2),
     strip.text.x = element_text(face = "bold", size = 8, 
                                 margin = margin(4, 2, 4, 2, "pt")),
@@ -548,34 +564,23 @@ bar_reads_per_day
 
 ```
 
-### Figure 10: SPD ALPR Collection by Day and Device
+### Figure 11: SPD ALPR Collection by Day and Device
 
 Not all ALPR devices recorded license plate reads every day of the week.
 
 ```{r bar plot reads by day and device, echo=FALSE, message=FALSE, warning=FALSE}
 
-## WHAT'S MEANINGFUL TO LOOK AT: chart of missingness by device by date and time (figure 7b but add date)
+# Proportions of the bar colored by devices
 
-#Proportions of the bar colored by devices
 bar_reads_per_day_device <- df %>%
   ggplot(aes(x=wday)) +
   geom_bar(aes(fill = device),
-           bins = 7, binwidth=.5, alpha=0.9) +
+           bins = 7, binwidth = .5) +
     scale_y_continuous(labels = comma) +
     scale_x_continuous(breaks = seq(1,7, by = 1), labels = c(
       "Sunday","Monday","Tuesday","Wednesday","Thursday", "Friday", "Saturday")) +
-    scale_fill_manual("ALPR Devices", values = c(
-      "BXH9904 SPD2020627MDC" = "gray", 
-      "M207541_Deleted_2021-10-21_22 50:42" = "#571B7E", 
-      "M207709" = "#663399", 
-      "PEO508459" = "#800080", 
-      "PEOATG508533" = "#967BB6",
-      "SPD2020537MDC" = "gray", 
-      "SPD2020602MDC" = "#2E1A47", 
-      "SPD2020621MDC" = "#9D00FF", 
-      "SPD2020681MDC" = "#4b2e83")) + 
+  scale_fill_brewer(palette = "Purples") +
   theme(
-    legend.position = "none", 
     axis.title = element_text(face = "bold"),
     axis.text.x = element_text(margin = margin(t = .3, unit = "cm")),
     plot.caption = element_text(face = "italic")) +
@@ -583,7 +588,112 @@ bar_reads_per_day_device <- df %>%
         x = "Day of the Week",
         caption = "Source: SPD")
 
-bar_reads_per_day_device
+plotly::ggplotly(bar_reads_per_day_device)
 
 ```
 
+# Analyzing SPD's ALPR System and Census Data 
+
+Our preliminary statistical analysis suggests a negative correlation between plate hits and median household income, indicating a possible increase of surveillance in lower income neighborhoods. **Figure 12** below depicts this relationship; the darker the blue, the higher the intensity of ALPR reads. 
+
+However, when accounting for over-dispersion, the correlation loses its statistical significance. This finding should thus be interpreted with caution. Moreover, our analysis only covers data from a single week, and a large portion of the collected readings are missing important location data. 
+
+```{r map of median income, message=FALSE, warning=FALSE, include=FALSE}
+
+# Retrieve physical attributes for map from tigris package
+my_state = 'WA'
+my_county = c('King', 'Snohomish','Kitsap','Pierce','Island')
+my_roads = primary_secondary_roads(my_state) %>% 
+               filter(RTTYP %in% c('U','S','I','C','O'))
+landmass = counties(cb = TRUE, state = my_state)
+water = area_water(my_state,my_county)
+
+#Create basic map from physical attributes
+my_map = ggplot() +
+  geom_sf(data = landmass, fill = '#e6e6e6', color = NA, 
+          aes(geometry = geometry)) + 
+  geom_sf(data = water, fill = '#cce6ff', color = NA, 
+          aes(geometry = geometry)) + 
+  geom_sf(data = my_roads, color = 'white', aes(geometry = geometry)) +
+  theme(
+        plot.title = element_text(family = "Helvetica",
+                                  face = "bold",
+                                  colour = "black",
+                                  size = 12,
+                                  margin = margin(1),
+                                  hjust = .5),
+        plot.subtitle = element_text(family = "Helvetica",
+                                  colour = "black",
+                                  size = 9,
+                                  margin = margin(1),
+                                  hjust = .5),
+        plot.caption = element_text(family = "Helvetica",
+                                  colour = "black",
+                                  size = 6,
+                                  margin = margin(1),
+                                  hjust = .5),
+        # legend.justification=c(1,0), legend.position=c(1,0),
+        legend.title = element_text(family = "Helvetica",
+                                  colour = "black",
+                                  size = 6,
+                                  margin = margin(1),
+                                  hjust = .5),
+        legend.text = element_text(family = "Helvetica",
+                                  colour = "black",
+                                  margin = margin(1),
+                                  size = 4,
+                                  hjust = .5),
+        legend.spacing.y = unit(0, "mm"),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black"),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+# Merge geography data for map (zip tabulations = zip codes)
+shapefile <- zctas(cb = F, year = 2010, state = 'WA') %>%
+  subset(select = c(ZCTA5CE10, geometry)) %>%
+  mutate(zipcode = ZCTA5CE10)
+
+df <- merge(df, shapefile, by = "zipcode", all.x = TRUE) 
+
+limits = st_bbox(df$geometry)
+
+boundaries_df <- coord_sf(xlim = c(as.numeric(limits$xmin),as.numeric(limits$xmax)), 
+           ylim = c(as.numeric(limits$ymin),as.numeric(limits$ymax)))
+
+
+#Create choropleth map 
+medincome_map = my_map +
+  scale_fill_distiller(direction = -1) +
+  geom_sf(data = df %>%
+            filter(!is.na(median_incomeE)), 
+          color = NA, aes(geometry = geometry, fill = median_incomeE)) 
+
+#Plot ALPR reads onto choropleth map: df 
+medincome_boundaries_df <- medincome_map + boundaries_df 
+
+medincome_p1 <- medincome_boundaries_df + 
+  geom_point(aes(x = lon, y = lat), 
+             data = df,
+             # filter(is.na(outlier)),
+             color = "black", fill= plot_color, shape= 21, size = .5, stroke = .03) + 
+  labs(
+       subtitle = "The data indicates ALPR reads are negatively correlated with median income",
+       fill = "2021 Median Household Income",
+       caption = "Source: [SPD] and U.S. Census Bureau 2021 Household Income Estimate") 
+```
+
+### Figure 12: ALPR Plate Reads and Median Income
+
+```{r calling map of median income, echo=FALSE, message=FALSE, warning=FALSE}
+medincome_p1
+
+```
+
+
+We did not identify any other suggestive correlations between SPD surveillance and other demographic factors, but [link to our notebook and how they can see some analyses there?]. 
+ 
