@@ -305,7 +305,16 @@ heatmap_uvillage
 
 #Label devices as they appear in the data (called names using unique function and labeled in the same order)
 df <- df %>%
-  mutate(device_abbr = factor(device) %>%
+  mutate(device_abbr = factor(device,
+                              levels = c("M207541_Deleted_2021-10-21_22 50:42",
+                                        "SPD2020681MDC",
+                                        "BXH9904 SPD2020627MDC",
+                                        "M207709",
+                                        "SPD2020537MDC",
+                                        "SPD2020602MDC",
+                                        "PEOATG508533",
+                                        "SPD2020621MDC",
+                                        "PEO508459" )) %>%
            fct_recode("A" = "M207541_Deleted_2021-10-21_22 50:42",
                       "B" = "SPD2020681MDC",
                       "C" = "BXH9904 SPD2020627MDC",
