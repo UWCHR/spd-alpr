@@ -349,8 +349,9 @@ reads_missing_address <- df %>%
   filter(missing_address %in% c('TRUE'))
 
 devices_missing_address = reads_missing_address %>%
-  filter(device_abbr== "H" | device_abbr == "I")  %>%
+  filter(device_abbr== "C" | device_abbr == "E")  %>%
   nrow()
+
 devices_missing_address_p = devices_missing_address / total_reads * 100
 
 peo_device_reads = sum(df$device_abbr== "G" | df$device_abbr == "F") 
@@ -385,7 +386,9 @@ table_reads_per_device
 
 ### Figure 7: Tracking the Movements of ALPR Devices
 
-The path of two active ALPR devices are depicted below. The maps show where the device captured license plates on camera througout the day. This vehicle collected plates all throughout the Seattle area across multiple days.
+The paths of two active ALPR devices are depicted below. The maps show where the device captured license plates on camera throughout the day. 
+
+This vehicle collected plates all throughout the Seattle area across multiple days.
 
 ```{r map device path, echo=FALSE, message=FALSE, warning=FALSE}
 
