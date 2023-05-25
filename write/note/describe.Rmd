@@ -16,7 +16,7 @@ output:
     toc_depth: '3'
 ---
 
-```{r import, echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+```{r import, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 
 library(pacman)
 p_load(tidyverse) 
@@ -30,7 +30,6 @@ p_load(leaflet.extras)
 p_load(tigris)
 p_load(sf)
 p_load(viridis)
-
 
 options(scipen = 999)
 
@@ -57,12 +56,11 @@ labels <- read_delim(here::here('write', 'input', 'labels.csv'))
 ggkey = Sys.getenv("GEOCODE_API_KEY")
 register_google(key = ggkey)
 
-
 ```
 
 # Introduction 
 
-This notebook analyzes one week of Seattle Police Department (SPD) Automated License Plate Reader (ALPR) activity obtained by the University of Washington Center for Human Rights (UWCHR) through public records requests.
+This notebook analyzes one week of Seattle Police Department (SPD) Automated License Plate Reader (ALPR) activity obtained by the University of Washington Center for Human Rights (UWCHR) through public records requests. For previous UWCHR research regarding ALPR devices see the report ["Who’s Watching Washington: Dangers of Automated License Plate Readers to Immigrant and Reproductive Rights in Washington State"](https://jsis.washington.edu/humanrights/2022/12/07/whos-watching-washington/). 
 
 # License Plate Reads
 
@@ -180,18 +178,6 @@ leaflet_all_reads <- leaflet(df) %>%
         "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
         "font-size" = "12px",
         "border-color" = "rgba(0,0,0,0.5)")))
-  # %>%
-  # addMarkers(
-  #   lng = -121.9996418, lat = 47.84514158,
-  #   label = "Monroe Correctional Complex",
-  #   labelOptions = labelOptions(noHide = T, direction = "bottom",
-  #     style = list(
-  #       "color" = "black",
-  #       "font-family" = "sans serif",
-  #       "font-style" = "bold",
-  #       "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-  #       "font-size" = "12px",
-  #       "border-color" = "rgba(0,0,0,0.5)"))) 
 
 leaflet_all_reads
 
