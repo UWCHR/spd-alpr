@@ -28,7 +28,7 @@ library(lme4)
 library(stargazer)
 
 # Restrict data to Seattle-area zipcodes
-zips <- yaml::read_yaml(here::here('analyze', 'hand', 'seattlezips.yaml'))
+seattle_zipcodes <- yaml::read_yaml(here::here('analyze', 'hand', 'seattlezips.yaml'))
 
 spd_precinct_zips <- c(98106,
                       98108,
@@ -52,14 +52,14 @@ df <- read_delim(here::here('analyze', 'input', 'spd-alpr-pub.csv.gz'), delim='|
 
 #Mutate date variables
 df <- df %>% 
-  mutate(r_year = (year(dt)),
-         r_month = (month(dt)),
-         r_day = (day(dt)),
-         r_hour = (hour(dt)),
-         r_minute = (minute(dt)),
-         r_wday = (wday(dt)),
-         r_weekend = r_wday %in% c(1, 7),
-         r_date = (ymd(paste(r_year, r_month, r_day, sep='-'))))
+  mutate(read_year = (year(dt)),
+         read_month = (month(dt)),
+         read_day = (day(dt)),
+         read_hour = (hour(dt)),
+         read_minute = (minute(dt)),
+         read_wday = (wday(dt)),
+         read_weekend = read_wday %in% c(1, 7),
+         read_date = (ymd(paste(read_year, read_month, read_day, sep='-'))))
 
 predictors <- c('median_incomeE',
               'hispE',
@@ -73,13 +73,13 @@ predictors <- c('median_incomeE',
 
 
 df <- df %>% 
-  filter(zipcode %in% zips, # Restrict to Seattle-area zipcodes only
+  filter(zipcode %in% seattle_zipcodes, # Restrict to Seattle-area zipcodes only
         !is.na(zipcode), # Drop observations missing zipcode
          !zipcode %in% c(98195), # Outlier zipcode: missing income estimates, policed by UWPD
          # !grepl('I-5', address), # All plate reads on I-5 geolocated to two points, dropped
         ) %>% 
   mutate(spd_precinct = zipcode %in% spd_precinct_zips,
-        zipcode = as.factor(zipcode))
+        zipcode = factor(zipcode))
 
 # glimpse(df)
 
@@ -102,8 +102,8 @@ As noted in the descriptive analysis writeup, two ALPR devices representing appr
 ```{r model_setup_reads_per_zip_dev_date, echo=FALSE, message=FALSE, warning=FALSE}
 
 reads_per_zip_device_day <- df %>% 
-  group_by(zipcode, device, r_date, .drop = FALSE) %>% 
-  summarize(r_freq = n())
+  group_by(zipcode, device, read_date, .drop = FALSE) %>% 
+  summarize(read_freq = n())
 
 reads_per_zip_device_day <- merge(reads_per_zip_device_day,
                                   census,
@@ -111,8 +111,8 @@ reads_per_zip_device_day <- merge(reads_per_zip_device_day,
                                   all.x = TRUE)
 
 reads_per_zip_device_day <- reads_per_zip_device_day %>% 
-  mutate(r_wday = (wday(r_date)),
-         r_weekend = r_wday %in% c(1, 7),
+  mutate(read_wday = (wday(read_date)),
+         read_weekend = read_wday %in% c(1, 7),
          spd_precinct = zipcode %in% spd_precinct_zips,
          device = as.factor(device),
          zipcode = as.factor(zipcode))
@@ -123,7 +123,7 @@ We attempted to model the relationship between license plate read frequency by l
 
 ```{r hist, echo=FALSE, message=FALSE, warning=FALSE}
 
-hist(reads_per_zip_device_day$r_freq)
+hist(reads_per_zip_device_day$read_freq)
 
 ```
 
@@ -131,18 +131,21 @@ hist(reads_per_zip_device_day$r_freq)
 
 ```{r summary_stats, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
-stargazer(reads_per_zip_device_day, type='html')
+summary_stats <- reads_per_zip_device_day %>% 
+  dplyr::select(read_freq, read_wday, read_weekend, spd_precinct, median_incomeE, total_popE, hispE, whiteE, blackE, nativeE, asianE, pacislE, otherE)
+
+stargazer(summary_stats, column.sep.width = '10pt', type='html')
 
 ```
 
 <br>
 
-Visual inspection of the bivariate relationship between plate read frequency (`r_freq`) and estimated median household income per zipcode (`median_incomeE`) does not show a strong trend:
+Visual inspection of the bivariate relationship between plate read frequency (`read_freq`) and estimated median household income per zipcode (`median_incomeE`) does not show a strong trend:
 
 ```{r bivariate_scatter, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
 p1 <- reads_per_zip_device_day %>% 
-  ggplot(aes(x = median_incomeE, y = r_freq)) +
+  ggplot(aes(x = median_incomeE, y = read_freq)) +
   geom_point() +
   geom_smooth(method='lm')
 
@@ -150,14 +153,14 @@ p1
 
 ```
 
-Models with `zipcode` and `device` modeled as random effects find significant negative correlation between plate read frequency (`r_freq`) and median household income (`median_incomeE`), when including offset for total population per zipcode. We also control for whether the reads took place on a weekend or in a zipcode with an SPD precinct office. Predictor variables are scaled per the requirements of the model. (Results are similar when modeling `zipcode` and `device` as dummy variables.)
+Models with `zipcode` and `device` modeled as random effects find significant negative correlation between plate read frequency (`read_freq`) and median household income (`median_incomeE`), when including offset for total population per zipcode. We also control for whether the reads took place on a weekend or in a zipcode with an SPD precinct office. Predictor variables are scaled per the requirements of the model. (Results are similar when modeling `zipcode` and `device` as dummy variables.)
 
 
 ```{r zip_device_day_income, echo=TRUE, message=FALSE, warning=FALSE, results='asis'}
 
 reads_per_zip_device_day[, predictors] <- scale(reads_per_zip_device_day[, predictors])
 
-mod3 <- glmer('r_freq ~ (1 | zipcode) + (1 | device) + r_weekend + median_incomeE + hispE + asianE + blackE + multiE + otherE + nativeE + pacislE + spd_precinct',
+mod3 <- glmer('read_freq ~ (1 | zipcode) + (1 | device) + read_weekend + median_incomeE + hispE + asianE + blackE + multiE + otherE + nativeE + pacislE + spd_precinct',
               offset=log(reads_per_zip_device_day$total_popE),
               data=reads_per_zip_device_day,
               family=poisson
