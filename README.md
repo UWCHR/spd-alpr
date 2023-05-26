@@ -1,5 +1,8 @@
 # spd-alpr
-Analysis of Seattle Police Department Automated License Plate Reader data
+Analysis of Seattle Police Department Automated License Plate Reader. 
+
+- [Descriptive analysis](https://uwchr.github.io/spd-alpr/)
+- [Statistical analysis](https://uwchr.github.io/spd-alpr/analyze.html)
 
 ## About the data
 
