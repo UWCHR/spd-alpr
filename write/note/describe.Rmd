@@ -98,9 +98,9 @@ date_2 <- paste0(month(dtrange[2], label = TRUE, abbr = FALSE), ' ', day(dtrange
 
 ```
 
-The dataset contains **`r total_reads`** instances where potential license plates were detected by SPD's surveillance system from **`r date_1`** (a `r wday(dtrange[1], label=TRUE, abbr=FALSE)`) to **`r date_2`** (a `r wday(dtrange[2], label=TRUE, abbr=FALSE)`). Of the license plates captured, **`r one_read`** reads, which accounts for **`r round(one_read_p, 0)`%** of total unique reads, were only captured once. We also found that on average, each unique license plate was captured **`r round(avg_reads, 2)`** times.
+The dataset contains **`r total_reads`** instances where potential license plates were detected by SPD's surveillance system from **`r date_1`** (a `r wday(dtrange[1], label=TRUE, abbr=FALSE)`) to **`r date_2`** (a `r wday(dtrange[2], label=TRUE, abbr=FALSE)`). Of the **`r unique_plates`** unique license plates (and other values) captured, **`r one_read`** reads, which accounts for **`r round(one_read_p, 0)`%** of total unique reads, were only captured once. We also found that on average, each unique license plate was captured **`r round(avg_reads, 2)`** times.
 
-ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as *AHEAD, DETOUR, CLOSED, ROAD*, and *VVARNING*) and other public signage (like *POLICE, TOWAWAY, CROSSWALK*, and *PARKING*). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide meaningful information about the presence of ALPR readers. 
+ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as *AHEAD, DETOUR, CLOSED, ROAD*, and *WARNING*) and other public signage (like *POLICE, TOWAWAY, CROSSWALK*, and *PARKING*). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide potentially meaningful information about the presence of ALPR readers. 
 
 # Analyzing the Spatial Deployment of SPD's ALPR System
 
