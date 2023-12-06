@@ -98,7 +98,7 @@ date_2 <- paste0(month(dtrange[2], label = TRUE, abbr = FALSE), ' ', day(dtrange
 
 ```
 
-The dataset contains **`r total_reads`** instances where potential license plates were detected by SPD's surveillance system from **`r date_1`** (a `r wday(dtrange[1], label=TRUE, abbr=FALSE)`) to **`r date_2`** (a `r wday(dtrange[2], label=TRUE, abbr=FALSE)`). Of the license plates captured, **`r one_read`** reads, which accounts for **`r round(one_read_p, 0)`%** of the total reads, were only captured once. We also found that on average, each unique license plate was captured **`r round(avg_reads, 2)`** times.
+The dataset contains **`r total_reads`** instances where potential license plates were detected by SPD's surveillance system from **`r date_1`** (a `r wday(dtrange[1], label=TRUE, abbr=FALSE)`) to **`r date_2`** (a `r wday(dtrange[2], label=TRUE, abbr=FALSE)`). Of the license plates captured, **`r one_read`** reads, which accounts for **`r round(one_read_p, 0)`%** of total unique reads, were only captured once. We also found that on average, each unique license plate was captured **`r round(avg_reads, 2)`** times.
 
 ALPR cameras also appear to pick up other types of visual data. For instance, the data includes reads that appear like road signs (such as *AHEAD, DETOUR, CLOSED, ROAD*, and *VVARNING*) and other public signage (like *POLICE, TOWAWAY, CROSSWALK*, and *PARKING*). Though these reads did not capture license plates, we did not remove them from our analysis because they still provide meaningful information about the presence of ALPR readers. 
 
@@ -596,7 +596,7 @@ plotly::ggplotly(bar_reads_per_day_device)
 
 # Analyzing SPD's ALPR System and Census Data 
 
-Our preliminary statistical analysis suggests a weak negative correlation between plate hits and median household income, indicating a possible increase of surveillance in lower income neighborhoods. **Figure 12** below depicts this relationship; the darker the blue, the higher the intensity of ALPR reads. We did not identify any other suggestive correlations between SPD surveillance and other demographic factors.
+Our preliminary statistical analysis suggests a weak negative correlation between plate hits and median household income, indicating a possible increase of surveillance in lower income neighborhoods. **Figure 12** below depicts this relationship. We did not identify any other suggestive correlations between SPD surveillance and other demographic factors.
 
 However, when accounting for over-dispersion, the correlation loses its statistical significance. This finding should thus be interpreted with caution. Moreover, our analysis only covers data from a single week, and a large portion of the collected readings are missing important location data. For a brief analysis, see this [companion notebook](analyze.html).
 
