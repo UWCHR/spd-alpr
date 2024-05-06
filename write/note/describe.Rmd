@@ -340,7 +340,7 @@ devices_missing_address = reads_missing_address %>%
 
 devices_missing_address_p = devices_missing_address / total_reads * 100
 
-peo_device_reads = sum(df$device_abbr== "G" | df$device_abbr == "F") 
+peo_device_reads = sum(df$device_abbr== "G" | df$device_abbr == "I") 
 peo_device_reads_p = peo_device_reads / total_reads * 100
 
 
@@ -350,7 +350,7 @@ The data set consists of **`r device_count`** devices. Each device captured an a
 
 Reads associated with two devices were completely missing addresses, comprising **`r round(devices_missing_address_p, 0)`%** of all reads in the data.
 
-Another two devices were attached to parking enforcement officer vehicles (PEO). Reads from PEO devices account for **`r round(peo_device_reads_p, 0)`%** of reads in the data set.
+Another two devices were labeled as attached to parking enforcement officer vehicles (PEO). Reads from PEO devices account for **`r round(peo_device_reads_p, 0)`%** of reads in the data set. It is possible that other devices are also associated with parking enforcement activities but not labeled as such.
 
 ### Figure 6: Reads Per Device
 
