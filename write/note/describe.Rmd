@@ -456,7 +456,7 @@ device_SPD2020621MDC_map <- ggmap(everett) +
                                 margin = margin(4, 2, 4, 2, "pt")),
      panel.spacing = unit(10, "pt")) + 
     labs(
-      subtitle = "Device 'A'",
+      subtitle = "Device 'H'",
       caption = "Source: SPD",
       color = "Time of Day")
 
